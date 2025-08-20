@@ -19,26 +19,52 @@ uploaded_file = st.sidebar.file_uploader("Sube un archivo CSV", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.write("### Vista previa del dataset", df.head())
+    st.sidebar.subheader("Navegación")
+    page = st.sidebar.selectbox("Selecciona una sección", 
+                                 ["Vista previa", "EDA", "Modelos Supervisados", "Modelos No Supervisados"])
 
-    if st.sidebar.checkbox("Mostrar descripción del dataset"):
-        st.write(df.describe())
+    if page == "Vista previa":
+        st.subheader("📄 Vista previa del dataset")
+        st.write(df.head())
+        if st.checkbox("Mostrar descripción estadística"):
+            st.write(df.describe())
 
-    st.sidebar.subheader("Selecciona el tipo de modelo")
-    model_type = st.sidebar.radio("Tipo de aprendizaje", ("Supervisado", "No Supervisado"))
+    elif page == "EDA":
+        st.subheader("📊 Análisis Exploratorio de Datos (EDA)")
 
-    if model_type == "Supervisado":
-        target_column = st.sidebar.selectbox("Selecciona la columna objetivo", df.columns)
+        st.write("### Información general")
+        st.write(df.info())
+
+        st.write("### Tipos de datos")
+        st.write(df.dtypes)
+
+        st.write("### Valores nulos por columna")
+        st.write(df.isnull().sum())
+
+        st.write("### Distribuciones de variables numéricas")
+        numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+        selected_num_col = st.selectbox("Selecciona una columna numérica para visualizar", numeric_cols)
+        fig, ax = plt.subplots()
+        sns.histplot(df[selected_num_col], kde=True, ax=ax)
+        st.pyplot(fig)
+
+        st.write("### Matriz de correlación")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.heatmap(df[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
+        st.pyplot(fig)
+
+    elif page == "Modelos Supervisados":
+        st.subheader("🤖 Modelos de Aprendizaje Supervisado")
+
+        target_column = st.selectbox("Selecciona la columna objetivo", df.columns)
         features = df.drop(columns=[target_column])
         labels = df[target_column]
 
         # División de datos
         X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.3, random_state=42)
 
-        st.sidebar.subheader("Modelo Supervisado")
-        model_choice = st.sidebar.selectbox("Modelo", ["Logistic Regression", "Random Forest"])
-
-        if st.sidebar.button("Entrenar modelo"):
+        model_choice = st.selectbox("Selecciona un modelo", ["Logistic Regression", "Random Forest"])
+        if st.button("Entrenar modelo"):
             if model_choice == "Logistic Regression":
                 model = LogisticRegression(max_iter=1000)
             else:
@@ -47,29 +73,29 @@ if uploaded_file is not None:
             model.fit(X_train, y_train)
             predictions = model.predict(X_test)
 
-            st.subheader("Reporte de Clasificación")
+            st.subheader("📄 Reporte de Clasificación")
             st.text(classification_report(y_test, predictions))
 
-            st.subheader("Matriz de Confusión")
+            st.subheader("📉 Matriz de Confusión")
             cm = confusion_matrix(y_test, predictions)
             fig, ax = plt.subplots()
             sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
             st.pyplot(fig)
 
-    elif model_type == "No Supervisado":
-        st.sidebar.subheader("Modelo No Supervisado")
-        model_choice = st.sidebar.selectbox("Modelo", ["KMeans", "PCA"])
+    elif page == "Modelos No Supervisados":
+        st.subheader("🧩 Modelos de Aprendizaje No Supervisado")
 
-        n_components = st.sidebar.slider("Número de Clusters / Componentes", 2, 10, 3)
+        model_choice = st.selectbox("Selecciona un modelo", ["KMeans", "PCA"])
+        n_components = st.slider("Número de Clusters / Componentes", 2, 10, 3)
 
-        if st.sidebar.button("Ejecutar modelo"):
+        if st.button("Ejecutar modelo"):
             features = df.select_dtypes(include=["float64", "int64"])
 
             if model_choice == "KMeans":
                 model = KMeans(n_clusters=n_components, random_state=42)
                 clusters = model.fit_predict(features)
                 df["Cluster"] = clusters
-                st.subheader("Clusters asignados")
+                st.subheader("📌 Clusters asignados")
                 st.write(df.head())
 
                 fig, ax = plt.subplots()
@@ -80,7 +106,7 @@ if uploaded_file is not None:
                 model = PCA(n_components=n_components)
                 components = model.fit_transform(features)
 
-                st.subheader("Componentes Principales")
+                st.subheader("📊 Componentes Principales")
                 comp_df = pd.DataFrame(components, columns=[f"PC{i+1}" for i in range(n_components)])
                 st.write(comp_df.head())
 
@@ -88,5 +114,6 @@ if uploaded_file is not None:
                     fig, ax = plt.subplots()
                     sns.scatterplot(x=comp_df["PC1"], y=comp_df["PC2"], ax=ax)
                     st.pyplot(fig)
+
 else:
-    st.warning("Por favor, sube un archivo CSV para comenzar.")
+    st.warning("🔁 Por favor, sube un archivo CSV para comenzar.")
